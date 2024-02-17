@@ -2,8 +2,9 @@ package main
 
 import (
 	"Distributed-arithmetic-expression-evaluator/expressions"
+	"Distributed-arithmetic-expression-evaluator/server"
 	"fmt"
-	"time"
+	"net/http"
 )
 
 func main() {
@@ -13,7 +14,9 @@ func main() {
 	fmt.Println(exp.GetExpression(ID))
 
 	fmt.Println(exp.GetExpressions())
-	exp.Delete(ID)
-	time.Sleep(time.Second * 10)
 	fmt.Println(exp.GetExpression(ID))
+
+	http.HandleFunc("/", server.ListProcess)
+	http.ListenAndServe(":8080", nil)
+	fmt.Println("Start handling")
 }

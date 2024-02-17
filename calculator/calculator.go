@@ -2,7 +2,6 @@ package calculator
 
 import (
 	"Distributed-arithmetic-expression-evaluator/rest"
-	"context"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ var (
 	canBe              = []int32{48, 49, 50, 51, 52, 43, 45, 42, 40, 41, 47, 53, 54, 55, 56, 57}
 	arithmeticExecTime = map[int32]time.Duration{43: time.Millisecond * 500, 45: time.Millisecond * 750,
 		42: time.Millisecond * 1000, 47: time.Millisecond * 1500}
+	ComputingPower []int32
 )
 
 func Waiter(value1, value2 int, operate int32) int {
@@ -39,12 +39,12 @@ func Waiter(value1, value2 int, operate int32) int {
 }
 
 // Delimiter Распределяет подсчёт на разные ярусы
-func Delimiter(expression string) ([]int32, []int, error) {
+func Delimiter(expr string) ([]int32, []int, error) {
 	var queue = make([]int32, 0)
 	var values = make([]int, 0)
 	var value string
 
-	for _, val := range expression {
+	for _, val := range expr {
 		if slices.Contains(alphabet, val) {
 			if value != "" {
 				num, err := strconv.Atoi(value)
@@ -78,7 +78,7 @@ func Delimiter(expression string) ([]int32, []int, error) {
 
 // Distributor Разделяет значения на множество действий
 func Distributor(queue []int32, values []int) ([][]int32, [][]int, error) {
-	var expressions = [][]int32{{}}
+	var expresses = [][]int32{{}}
 	var sortValues = [][]int{{}}
 
 	var indexes = []int{0}
@@ -89,9 +89,9 @@ func Distributor(queue []int32, values []int) ([][]int32, [][]int, error) {
 	for i, val := range queue {
 		switch val {
 		case 40: // (
-			indexes = append(indexes, len(expressions))
+			indexes = append(indexes, len(expresses))
 			sortValues = append(sortValues, make([]int, 0))
-			expressions = append(expressions, make([]int32, 0))
+			expresses = append(expresses, make([]int32, 0))
 
 		case 41: // )
 			index = rest.Last(indexes)
@@ -123,7 +123,7 @@ func Distributor(queue []int32, values []int) ([][]int32, [][]int, error) {
 				indexValue++
 			}
 
-			expressions[index] = append(expressions[index], val)
+			expresses[index] = append(expresses[index], val)
 		}
 	}
 
@@ -137,15 +137,15 @@ func Distributor(queue []int32, values []int) ([][]int32, [][]int, error) {
 		}
 	}
 
-	return expressions, sortValues, nil
+	return expresses, sortValues, nil
 }
 
-func Mathematician(expressions [][]int32, values [][]int) int {
+func Mathematician(expresses [][]int32, values [][]int) int {
 	var doneCh = make(chan []int)
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
-	go Proletarian(&wg, expressions, values, 0, &doneCh)
+	go Proletarian(&wg, expresses, values, 0, &doneCh)
 
 	go func() {
 		defer close(doneCh)
@@ -159,19 +159,21 @@ func Mathematician(expressions [][]int32, values [][]int) int {
 	return -1
 }
 
-func Proletarian(wg *sync.WaitGroup, expressions [][]int32, values [][]int, index int, outCh *chan []int) {
+func Proletarian(wg *sync.WaitGroup, expresses [][]int32, values [][]int, index int, outCh *chan []int) {
 	defer wg.Done()
 	var valueWG = sync.WaitGroup{}
 
-	var expression = expressions[index]
+	var expr = expresses[index]
 	var value = values[index]
 	var calculated = make([]int, len(value))
 
-	var routine = ArithmeticSorter(expression)
+	var routine = ArithmeticSorter(expr)
 
 	var value1, value2 int
 
 	for _, i := range routine {
+		ComputingPower = append(ComputingPower, expr[i])
+
 		if calculated[i] == 0 {
 			value1 = value[i]
 		} else {
@@ -188,12 +190,12 @@ func Proletarian(wg *sync.WaitGroup, expressions [][]int32, values [][]int, inde
 
 		if value1 <= 0 {
 			valueWG.Add(1)
-			go Proletarian(&valueWG, expressions, values, -value1, &valueCh)
+			go Proletarian(&valueWG, expresses, values, -value1, &valueCh)
 		}
 
 		if value2 <= 0 {
 			valueWG.Add(1)
-			go Proletarian(&valueWG, expressions, values, -value2, &valueCh)
+			go Proletarian(&valueWG, expresses, values, -value2, &valueCh)
 		}
 
 		go func() {
@@ -209,7 +211,8 @@ func Proletarian(wg *sync.WaitGroup, expressions [][]int32, values [][]int, inde
 			}
 		}
 
-		calculated[i] = Waiter(value1, value2, expression[i])
+		ComputingPower = slices.Delete(ComputingPower, slices.Index(ComputingPower, expr[i]), slices.Index(ComputingPower, expr[i])+1)
+		calculated[i] = Waiter(value1, value2, expr[i])
 		calculated[i+1] = calculated[i]
 	}
 
@@ -217,11 +220,11 @@ func Proletarian(wg *sync.WaitGroup, expressions [][]int32, values [][]int, inde
 }
 
 // ArithmeticSorter Сортирует операции по важности по убыванию
-func ArithmeticSorter(expression []int32) []int {
+func ArithmeticSorter(expr []int32) []int {
 	var routine []int
 	var routineStrong []int
 
-	for i, val := range expression {
+	for i, val := range expr {
 		if val == 42 || val == 47 {
 			routineStrong = append(routineStrong, i)
 		} else if val == 43 || val == 45 {
@@ -233,8 +236,14 @@ func ArithmeticSorter(expression []int32) []int {
 }
 
 // CalculationTime Считает примерное время выполнения операции
-func CalculationTime(expression string) (time.Duration, error) {
-	expressions, _, err := Delimiter(expression)
+func CalculationTime(expr string) (time.Duration, error) {
+	expr, err := PreparingExpression(expr)
+
+	if err != nil {
+		return 0, err
+	}
+
+	expresses, _, err := Delimiter(expr)
 
 	if err != nil {
 		return 0, err
@@ -242,7 +251,7 @@ func CalculationTime(expression string) (time.Duration, error) {
 
 	var workingHours time.Duration
 
-	for _, expr := range expressions {
+	for _, expr := range expresses {
 		workingHours += arithmeticExecTime[expr]
 	}
 
@@ -250,14 +259,14 @@ func CalculationTime(expression string) (time.Duration, error) {
 }
 
 // PreparingExpression Проверяет выражение на правильность формулировки и форматирует
-func PreparingExpression(expression string) (string, error) {
+func PreparingExpression(expr string) (string, error) {
 	var parenthesis = 0
 
-	expression = strings.Replace(expression, " ", "", strings.Count(expression, " "))
+	expr = strings.Replace(expr, " ", "", strings.Count(expr, " "))
 
 	var dataReplace = map[string]string{"+-": "-", "--": "+", "++": "+"}
 
-	for i, val := range expression {
+	for i, val := range expr {
 		if val == 40 {
 			parenthesis++
 		} else if val == 41 {
@@ -273,63 +282,62 @@ func PreparingExpression(expression string) (string, error) {
 		return "", rest.NewError("Extra open parenthesis")
 	}
 
-	expression = strings.Trim(expression, "/*+-")
+	expr = strings.Trim(expr, "/*+-")
 
 	for key, val := range dataReplace {
-		for strings.Count(expression, key) != 0 {
-			expression = strings.Replace(expression, key, val, strings.Count(expression, key))
+		for strings.Count(expr, key) != 0 {
+			expr = strings.Replace(expr, key, val, strings.Count(expr, key))
 		}
 	}
 
-	for i, elem := range expression {
+	for i, elem := range expr {
 		if !slices.Contains(canBe, elem) {
 			return "", rest.NewError("Foreign character detected: %s", string(elem))
-		} else if slices.Contains(alphabet, elem) && elem > 41 && ((slices.Contains(alphabet, int32(expression[i-1])) && expression[i-1] > 41) || (slices.Contains(alphabet, int32(expression[i+1])) && expression[i+1] > 41)) {
-			return "", rest.NewError("Incorrect expression: %s", expression[i-1:i+2])
+		} else if slices.Contains(alphabet, elem) && elem > 41 && ((slices.Contains(alphabet, int32(expr[i-1])) && expr[i-1] > 41) || (slices.Contains(alphabet, int32(expr[i+1])) && expr[i+1] > 41)) {
+			return "", rest.NewError("Incorrect expression: %s", expr[i-1:i+2])
 		}
 	}
 
-	return expression, nil
+	return expr, nil
 }
 
 // Calculator Решает арифметическое выражение
-func Calculator(ctx context.Context, expression string) {
-	defer close(ctx.Value("errCh").(chan error))
-	defer close(ctx.Value("stateCh").(chan int))
+func Calculator(express *rest.Expression) {
+	defer express.Close()
 
-	expression, err := PreparingExpression(expression)
+	expr, err := PreparingExpression(express.Express)
 
 	if err != nil {
-		ctx.Value("errCh").(chan error) <- err
+		express.ErrCh <- err
 		return
 	}
 
-	queue, values, err := Delimiter(expression)
+	queue, values, err := Delimiter(expr)
 
 	if err != nil {
-		ctx.Value("errCh").(chan error) <- err
+		express.ErrCh <- err
 		return
 	}
 
-	expressions, value, err := Distributor(queue, values)
+	expresses, value, err := Distributor(queue, values)
 
 	if err != nil {
-		ctx.Value("errCh").(chan error) <- err
+		express.ErrCh <- err
 		return
 	}
 
-	for i, val := range expressions {
+	for i, val := range expresses {
 		if len(val)+1 != len(value[i]) {
-			ctx.Value("errCh").(chan error) <- rest.NewError("Incorrect expression")
+			express.ErrCh <- rest.NewError("Incorrect expression")
 			return
 		} else if len(val) == 0 || len(value[i]) < 2 {
-			ctx.Value("errCh").(chan error) <- rest.NewError("Too few arguments")
+			express.ErrCh <- rest.NewError("Too few arguments")
 			return
 		}
 	}
 
-	answer := Mathematician(expressions, value)
-	ctx.Value("stateCh").(chan int) <- answer
+	answer := Mathematician(expresses, value)
+	express.Result <- answer
 
 	return
 }
