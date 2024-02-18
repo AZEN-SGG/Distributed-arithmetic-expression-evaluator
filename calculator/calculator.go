@@ -17,6 +17,19 @@ var (
 	ComputingPower []int32
 )
 
+type Operation struct {
+	operator string
+	value    string
+}
+
+func FormatOperation(oper, val string) (*Operation, error) {
+
+}
+
+func mathOperation(operations ...*Operation) {
+
+}
+
 func Waiter(value1, value2 int, operate int32) int {
 	time.Sleep(arithmeticExecTime[operate])
 

@@ -3,7 +3,6 @@ package expressions
 import (
 	"Distributed-arithmetic-expression-evaluator/calculator"
 	"Distributed-arithmetic-expression-evaluator/rest"
-	"math/rand/v2"
 	"slices"
 	"sync"
 	"time"
@@ -11,32 +10,30 @@ import (
 
 // Expressions Является структурой выражений
 type Expressions struct {
-	IDs map[int]*rest.Expression
+	IDs map[string]*rest.Expression
 	mu  sync.Mutex
 }
 
 func NewExpressions() *Expressions {
 	return &Expressions{
-		IDs: map[int]*rest.Expression{},
+		IDs: map[string]*rest.Expression{},
 		mu:  sync.Mutex{},
 	}
 }
 
-func (express *Expressions) AddExpression(expr string) (int, error) {
-	var ID = rand.N(999_999_999)
-
+func (express *Expressions) AddExpression(ID, expr string) (string, error) {
 	express.mu.Lock()
 	var keys = rest.MapGetKeys(express.IDs)
 	express.mu.Unlock()
 
-	for slices.Contains(keys, ID) {
-		ID = rand.N(999_999_999)
+	if slices.Contains(keys, ID) {
+		return "", rest.NewError("An expression with ID %s is already exists", ID)
 	}
 
 	var ex, err = NewExpression(expr)
 
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	express.mu.Lock()
@@ -48,7 +45,7 @@ func (express *Expressions) AddExpression(expr string) (int, error) {
 	return ID, nil
 }
 
-func (express *Expressions) Delete(IDs ...int) {
+func (express *Expressions) Delete(IDs ...string) {
 	defer express.mu.Unlock()
 	express.mu.Lock()
 	for _, key := range IDs {
@@ -65,7 +62,7 @@ func (express *Expressions) Unlock() {
 }
 
 // GetExpression Возвращает результат, -1 или ошибку в зависимости от состояния процесса
-func (express *Expressions) GetExpression(ID int) (*rest.Expression, error) {
+func (express *Expressions) GetExpression(ID string) (*rest.Expression, error) {
 	express.mu.Lock()
 	var expr, ok = express.IDs[ID]
 	express.mu.Unlock()
@@ -77,8 +74,8 @@ func (express *Expressions) GetExpression(ID int) (*rest.Expression, error) {
 	return expr, nil
 }
 
-func (express *Expressions) GetExpressions() map[int]*rest.Expression {
-	var expressions = map[int]*rest.Expression{}
+func (express *Expressions) GetExpressions() map[string]*rest.Expression {
+	var expressions = map[string]*rest.Expression{}
 
 	express.mu.Lock()
 	for key, value := range express.IDs {

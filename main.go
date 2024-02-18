@@ -1,22 +1,26 @@
 package main
 
 import (
-	"Distributed-arithmetic-expression-evaluator/expressions"
-	"Distributed-arithmetic-expression-evaluator/server"
-	"fmt"
 	"net/http"
 )
 
+/*
 func main() {
-	var exp = expressions.NewExpressions()
-	var ID, _ = exp.AddExpression("(6+6)+6")
+	http.HandleFunc("/expression", server.ArithmeticsHandler)
+	http.HandleFunc("/list", server.ListProcessHandler)
 
-	fmt.Println(exp.GetExpression(ID))
+	err := http.ListenAndServe(":8080", nil)
 
-	fmt.Println(exp.GetExpressions())
-	fmt.Println(exp.GetExpression(ID))
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	http.HandleFunc("/", server.ListProcess)
-	http.ListenAndServe(":8080", nil)
 	fmt.Println("Start handling")
+}
+
+*/
+
+func main() {
+	http.HandleFunc("/math-operations", MathOperationsHandler)
+	http.ListenAndServe(":8080", nil)
 }
