@@ -72,7 +72,7 @@ func ListProcessHandler(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	_, err = fmt.Fprintln(w, "Format: ID - state - expression - creation date - approximate calculation time")
+	_, err = fmt.Fprint(w, "Format: ID - state - expression - creation date - approximate calculation time\n")
 
 	if err != nil {
 		w.WriteHeader(500)
@@ -91,7 +91,7 @@ func ListProcessHandler(w http.ResponseWriter, _ *http.Request) {
 	for id, expr := range values {
 		formatExpression := FormatExpression(id, expr)
 
-		_, err = fmt.Fprint(w, strings.Join(formatExpression, " - "))
+		_, err = fmt.Fprint(w, strings.Join(formatExpression, " - ")+"\n")
 
 		if err != nil {
 			w.WriteHeader(500)
