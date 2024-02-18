@@ -8,6 +8,7 @@ import (
 // Пришлось поместить сюда, чтобы не происходит cycle, так как пакет calculator нужен данный класс
 
 type Expression struct {
+	Value      int
 	Express    string
 	Result     chan int
 	ErrCh      chan error
@@ -25,6 +26,10 @@ func (express *Expression) GetValue() (int, error) {
 	case err := <-express.ErrCh:
 		return 0, err
 	case answer := <-express.Result:
+		if express.Value == -1 {
+			express.Value = answer
+		}
+
 		return answer, nil
 	default:
 		return -1, nil

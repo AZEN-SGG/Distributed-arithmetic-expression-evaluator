@@ -12,26 +12,37 @@ import (
 var (
 	alphabet           = []int32{40, 41, 42, 47, 43, 45}
 	canBe              = []int32{48, 49, 50, 51, 52, 43, 45, 42, 40, 41, 47, 53, 54, 55, 56, 57}
-	arithmeticExecTime = map[int32]time.Duration{43: time.Millisecond * 500, 45: time.Millisecond * 750,
+	ArithmeticExecTime = map[int32]time.Duration{43: time.Millisecond * 500, 45: time.Millisecond * 750,
 		42: time.Millisecond * 1000, 47: time.Millisecond * 1500}
 	ComputingPower []int32
 )
 
 type Operation struct {
-	operator string
-	value    string
+	operator int32
+	value    int64
 }
 
-func FormatOperation(oper, val string) (*Operation, error) {
+func FormatOperation(opera int32, val string) (*Operation, error) {
+	var digit, err = strconv.ParseInt(strings.Replace(val, "-", "", -1), 10, 0)
 
+	if err != nil {
+		return nil, err
+	}
+
+	return &Operation{
+		operator: opera,
+		value:    digit,
+	}, nil
 }
 
-func mathOperation(operations ...*Operation) {
-
+func MathOperation(operations ...*Operation) {
+	for _, val := range operations {
+		ArithmeticExecTime[val.operator] = time.UnixMilli(val.value).Sub(time.UnixMilli(0))
+	}
 }
 
 func Waiter(value1, value2 int, operate int32) int {
-	time.Sleep(arithmeticExecTime[operate])
+	time.Sleep(ArithmeticExecTime[operate])
 
 	switch operate {
 	case 42:
@@ -265,7 +276,7 @@ func CalculationTime(expr string) (time.Duration, error) {
 	var workingHours time.Duration
 
 	for _, expr := range expresses {
-		workingHours += arithmeticExecTime[expr]
+		workingHours += ArithmeticExecTime[expr]
 	}
 
 	return workingHours, nil
@@ -350,6 +361,7 @@ func Calculator(express *rest.Expression) {
 	}
 
 	answer := Mathematician(expresses, value)
+
 	express.Result <- answer
 
 	return

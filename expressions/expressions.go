@@ -2,8 +2,10 @@ package expressions
 
 import (
 	"Distributed-arithmetic-expression-evaluator/calculator"
+	"Distributed-arithmetic-expression-evaluator/data"
 	"Distributed-arithmetic-expression-evaluator/rest"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -42,6 +44,12 @@ func (express *Expressions) AddExpression(ID, expr string) (string, error) {
 
 	go calculator.Calculator(ex)
 
+	err = express.UploadExpressions("data/data_expressions.csv")
+
+	if err != nil {
+		return "", err
+	}
+
 	return ID, nil
 }
 
@@ -51,6 +59,8 @@ func (express *Expressions) Delete(IDs ...string) {
 	for _, key := range IDs {
 		delete(express.IDs, key)
 	}
+
+	_ = express.UploadExpressions("data/data_expressions.csv")
 }
 
 func (express *Expressions) Lock() {
@@ -59,6 +69,63 @@ func (express *Expressions) Lock() {
 
 func (express *Expressions) Unlock() {
 	express.mu.Unlock()
+}
+
+func (express *Expressions) DownloadExpressions(name string) error {
+	var info, err = data.OpenCSV(name, ';')
+
+	if err != nil {
+		return err
+	}
+
+	for i, val := range info {
+		if i == 0 {
+			continue
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if val[2] != "-1" {
+			var expr, err = NewExpression(val[1])
+
+			digit, err := strconv.Atoi(val[2])
+
+			if err != nil {
+				return err
+			}
+
+			expr.Value = digit
+
+			express.Lock()
+			express.IDs[val[0]] = expr
+			express.Unlock()
+		} else {
+			_, err = express.AddExpression(val[0], val[1])
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (express *Expressions) UploadExpressions(name string) error {
+	var csvFile = make([][]string, 0)
+
+	csvFile = append(csvFile, []string{"ID", "Expression", "Value"})
+
+	for key, val := range express.GetExpressions() {
+		var expr = []string{key, val.Express, strconv.Itoa(val.Value)}
+
+		csvFile = append(csvFile, expr)
+	}
+
+	var err = data.WriteCSV(csvFile, name, ';')
+	return err
 }
 
 // GetExpression Возвращает результат, -1 или ошибку в зависимости от состояния процесса
@@ -94,6 +161,7 @@ func NewExpression(express string) (*rest.Expression, error) {
 	}
 
 	return &rest.Expression{
+		Value:      -1,
 		Express:    express,
 		Result:     make(chan int),
 		ErrCh:      make(chan error),
